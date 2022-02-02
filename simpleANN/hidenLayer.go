@@ -5,9 +5,6 @@ import (
 	"strconv"
 )
 
-const alfa float64 = 2
-const mu float64 = 0.5
-
 type hidenLayer struct {
 	layerContent []float64
 	layerWeights [][]float64
@@ -24,7 +21,7 @@ func NewLayer(count, nextCount int) (newLayer hidenLayer) {
 	return
 }
 
-func (hl *hidenLayer) layerForvard(nextLayer *[]float64) error {
+func (hl *hidenLayer) layerForvard(nextLayer *[]float64, alfa float64) error {
 	if len(*nextLayer) != len(hl.layerWeights) {
 		return errors.New("Slices length are not equals" + strconv.Itoa(len(*nextLayer)) + "/" + strconv.Itoa(len(hl.layerWeights)))
 	}
@@ -34,13 +31,13 @@ func (hl *hidenLayer) layerForvard(nextLayer *[]float64) error {
 		for idx2, c2 := range hl.layerContent {
 			mySum += c2 * c1[idx2]
 		}
-		(*nextLayer)[idx1] = sigmaFunc(mySum)
+		(*nextLayer)[idx1] = sigmaFunc(mySum, alfa)
 	}
 
 	return nil
 }
 
-func (hl *hidenLayer) layerBP(mis, layer []float64) []float64 {
+func (hl *hidenLayer) layerBP(mis, layer []float64, mu float64) []float64 {
 
 	res := make([]float64, len(hl.layerContent))
 

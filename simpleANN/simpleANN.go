@@ -13,22 +13,26 @@ import (
 	"time"
 )
 
-var readIMGs int
-var guesNum int
-
 type NN struct {
+	alfa        float64
+	mu          float64
+	readIMGs    int
+	guesNum     int
 	config      []int
 	innerLayers []hidenLayer
 	outLayer    []float64
 	lernLayer   []float64
 }
 
-func NewANN(config []int) (nn *NN, err error) {
+func NewANN(simpleAlfa, simpleMu float64, config []int) (nn *NN, err error) {
 	if len(config) < 3 {
 		return nil, errors.New("Not enough arguments")
 	}
 
 	nn = &NN{config: config}
+
+	nn.alfa = simpleAlfa
+	nn.mu = simpleMu
 
 	nn.innerLayers = make([]hidenLayer, len(config)-1)
 	for i := range nn.innerLayers {
@@ -122,7 +126,9 @@ func (nn *NN) TrainNN(trainData [][]float64, epochs int) error {
 		} */
 	}
 
-	exportStr := "epoch_" + strconv.Itoa(readIMGs) + "_" + strconv.Itoa(guesNum)
+	exportStr := fmt.Sprintf("%v", prevEpoch+epochs) + "_" + strconv.Itoa(nn.readIMGs) +
+		"_" + strconv.Itoa(nn.guesNum) + "_" + fmt.Sprintf("%.1f", nn.alfa) + "_" + fmt.Sprintf("%.4f", nn.mu)
+
 	err := nn.nnExport(exportStr)
 	if err != nil {
 		return err
@@ -133,8 +139,8 @@ func (nn *NN) TrainNN(trainData [][]float64, epochs int) error {
 
 func (nn *NN) nnGo(trainData [][]float64, epoch int, mode bool) error {
 
-	readIMGs = 0
-	guesNum = 0
+	nn.readIMGs = 0
+	nn.guesNum = 0
 
 	for _, curIMG := range trainData {
 
@@ -163,7 +169,7 @@ func (nn *NN) nnGo(trainData [][]float64, epoch int, mode bool) error {
 		}
 	}
 
-	fmt.Printf("%.3f ", float32(guesNum)/float32(readIMGs))
+	fmt.Printf("%.2f/%.2f/%.3f ", nn.alfa, nn.mu, float32(nn.guesNum)/float32(nn.readIMGs))
 	return nil
 }
 
@@ -176,7 +182,7 @@ func (nn *NN) nnFP() error {
 		} else {
 			target = &nn.outLayer
 		}
-		err := layer.layerForvard(target)
+		err := layer.layerForvard(target, nn.alfa)
 		if err != nil {
 			return err
 		}
@@ -185,7 +191,7 @@ func (nn *NN) nnFP() error {
 	return nil
 }
 
-func (nn NN) check() []float64 {
+func (nn *NN) check() []float64 {
 
 	res := make([]float64, len(nn.lernLayer))
 
@@ -197,10 +203,10 @@ func (nn NN) check() []float64 {
 	targetNum, _ := maxInArray(nn.lernLayer)
 
 	if resNum == targetNum {
-		guesNum++
+		nn.guesNum++
 	}
 
-	readIMGs++
+	nn.readIMGs++
 
 	return res
 }
@@ -214,10 +220,10 @@ func (nn *NN) nnBP(mistArr []float64) {
 		tmpLayer := make([]float64, len(curLayer))
 
 		for j, e := range curLayer {
-			tmpLayer[j] = sigmoidPrime(e)
+			tmpLayer[j] = sigmoidPrime(e, nn.alfa)
 		}
 
-		mistArr = nn.innerLayers[i].layerBP(mistArr, tmpLayer)
+		mistArr = nn.innerLayers[i].layerBP(mistArr, tmpLayer, nn.mu)
 		curLayer = nn.innerLayers[i].layerContent
 
 	}

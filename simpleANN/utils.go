@@ -26,7 +26,7 @@ func minInArray(arr []float64) (int, float64) {
 	return res, min
 }
 
-func sigmaFunc(x float64) (res float64) {
+func sigmaFunc(x, alfa float64) (res float64) {
 	return 1.0 / (1.0 + math.Exp(-x*alfa))
 	/* if x > 0 {
 		return x
@@ -35,7 +35,7 @@ func sigmaFunc(x float64) (res float64) {
 	} */
 }
 
-func sigmoidPrime(x float64) float64 {
+func sigmoidPrime(x, alfa float64) float64 {
 	return alfa * x * (1.0 - x)
 	/* if x > 0 {
 		return 1
