@@ -14,7 +14,7 @@ func main() {
 	}
 
 	alfa := 0.5
-	mu := 0.001
+	mu := 0.01
 	config := []int{dim * dim, 200, 100, 10}
 
 	nn, err := NewANN(alfa, mu, config)

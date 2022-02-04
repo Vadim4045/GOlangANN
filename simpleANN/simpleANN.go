@@ -117,21 +117,19 @@ func (nn *NN) firstGenerate() error {
 
 func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
 
-	curEpoch := nn.prevEpoch
-
-	for i := 0; i < epochs; i++ {
+	for i := nn.prevEpoch + 1; i < nn.prevEpoch+epochs; i++ {
 		err := nn.nnGo(trainData, i, mode)
 		if err != nil {
 			return err
 		}
 
-		curEpoch++
-
 		annStr := ""
 		for _, conf := range nn.config {
 			annStr += fmt.Sprintf("%d_", conf)
 		}
-		exportStr := fmt.Sprintf("%.4d_%s%.5d_%.5d_%.2f_%.5f", curEpoch, annStr, nn.readIMGs, nn.guesNum, nn.alfa, nn.mu)
+		exportStr := fmt.Sprintf("%.4d_%s%.5d_%.5d_%.2f_%.5f", i, annStr, nn.readIMGs, nn.guesNum, nn.alfa, nn.mu)
+
+		fmt.Println(exportStr)
 
 		err = nn.nnExport(exportStr)
 		if err != nil {
