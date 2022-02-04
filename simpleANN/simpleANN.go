@@ -18,6 +18,7 @@ type NN struct {
 	mu          float64
 	readIMGs    int
 	guesNum     int
+	prevEpoch   int
 	config      []int
 	innerLayers []hidenLayer
 	outLayer    []float64
@@ -36,7 +37,7 @@ func NewANN(simpleAlfa, simpleMu float64, config []int) (nn *NN, err error) {
 
 	nn.innerLayers = make([]hidenLayer, len(config)-1)
 	for i := range nn.innerLayers {
-		nn.innerLayers[i] = NewLayer(config[i], config[i+1])
+		nn.innerLayers[i] = NewLayer(config[i], config[i+1], nn.alfa)
 	}
 
 	nn.outLayer = make([]float64, config[len(config)-1])
@@ -77,7 +78,9 @@ func (n NN) nnExport(name string) error {
 
 	for i, layer := range n.innerLayers {
 		for j, arr := range layer.layerWeights {
-			_, _ = datawriter.WriteString("# " + strconv.Itoa(i) + " " + strconv.Itoa(j) + " " + strconv.Itoa(len(arr)) + "\n")
+
+			_, _ = datawriter.WriteString(fmt.Sprintf("# %d %d %d\n", i, j, len(arr)))
+
 			for _, elem := range arr {
 				_, _ = datawriter.WriteString(strconv.FormatFloat(elem, 'f', -1, 64) + " ")
 			}
@@ -91,19 +94,20 @@ func (n NN) nnExport(name string) error {
 	return nil
 }
 
-func (n *NN) firstGenerate() error {
+func (nn *NN) firstGenerate() error {
+	nn.prevEpoch = 0
 	fmt.Println("NN random generated")
-	if n == nil || n.innerLayers == nil {
+	if nn == nil || nn.innerLayers == nil {
 		return errors.New("Bad arguments(random initialise)")
 	}
 
 	randSource := rand.NewSource(time.Now().UnixNano())
 	randGen := rand.New(randSource)
 
-	for _, layer := range n.innerLayers {
+	for _, layer := range nn.innerLayers {
 		for _, arr := range layer.layerWeights {
 			for i := range arr {
-				arr[i] = (randGen.Float64() - 0.5) * 0.5
+				arr[i] = (randGen.Float64() - 0.5) * 0.1
 			}
 		}
 	}
@@ -111,27 +115,28 @@ func (n *NN) firstGenerate() error {
 	return nil
 }
 
-func (nn *NN) TrainNN(trainData [][]float64, epochs int) error {
+func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
+
+	curEpoch := nn.prevEpoch
 
 	for i := 0; i < epochs; i++ {
-		err := nn.nnGo(trainData, i, true)
+		err := nn.nnGo(trainData, i, mode)
 		if err != nil {
 			return err
 		}
 
-		/* exportStr := "epoch_" + strconv.Itoa(i) + "_" + strconv.Itoa(readIMGs) + "_" + strconv.Itoa(guesNum)
+		curEpoch++
+
+		annStr := ""
+		for _, conf := range nn.config {
+			annStr += fmt.Sprintf("%d_", conf)
+		}
+		exportStr := fmt.Sprintf("%.4d_%s%.5d_%.5d_%.2f_%.5f", curEpoch, annStr, nn.readIMGs, nn.guesNum, nn.alfa, nn.mu)
+
 		err = nn.nnExport(exportStr)
 		if err != nil {
 			return err
-		} */
-	}
-
-	exportStr := fmt.Sprintf("%v", prevEpoch+epochs) + "_" + strconv.Itoa(nn.readIMGs) +
-		"_" + strconv.Itoa(nn.guesNum) + "_" + fmt.Sprintf("%.1f", nn.alfa) + "_" + fmt.Sprintf("%.4f", nn.mu)
-
-	err := nn.nnExport(exportStr)
-	if err != nil {
-		return err
+		}
 	}
 
 	return nil
@@ -169,7 +174,7 @@ func (nn *NN) nnGo(trainData [][]float64, epoch int, mode bool) error {
 		}
 	}
 
-	fmt.Printf("%.2f/%.2f/%.3f ", nn.alfa, nn.mu, float32(nn.guesNum)/float32(nn.readIMGs))
+	fmt.Printf("%.2f/%.5f/%.4f\n", nn.alfa, nn.mu, float32(nn.guesNum)/float32(nn.readIMGs))
 	return nil
 }
 
@@ -220,7 +225,7 @@ func (nn *NN) nnBP(mistArr []float64) {
 		tmpLayer := make([]float64, len(curLayer))
 
 		for j, e := range curLayer {
-			tmpLayer[j] = sigmoidPrime(e, nn.alfa)
+			tmpLayer[j] = sigmoidPrime(e, nn.innerLayers[i].alfa)
 		}
 
 		mistArr = nn.innerLayers[i].layerBP(mistArr, tmpLayer, nn.mu)
@@ -244,11 +249,38 @@ func (nn *NN) loadStoredANN() error {
 	})
 
 	if err != nil {
-		return err
+		return errors.New("Bad path")
 	}
 
 	if folder == lastExportFile {
 		return errors.New("No files to import")
+	}
+
+	params := strings.Split(lastExportFile, "_")
+
+	if len(params) < 10 {
+		return errors.New("Bad filename length")
+	}
+
+	epochStr, err := strPrefRemove(params[0], "export/")
+	if err != nil {
+		return errors.New("Bad filename epoch - " + params[0])
+	}
+
+	nn.prevEpoch, err = strconv.Atoi(epochStr)
+	if err != nil {
+		return errors.New("Bad filename epoch: " + epochStr)
+	}
+
+	for idx := 0; idx < len(nn.config); idx++ {
+		nextCount, err := strconv.Atoi(params[idx+1])
+		if err != nil {
+			return errors.New("Bad filename params")
+		}
+
+		if nn.config[idx] != nextCount {
+			return errors.New("This file not for current network parameters")
+		}
 	}
 
 	fmt.Println("NN loaded from file: ", lastExportFile)
