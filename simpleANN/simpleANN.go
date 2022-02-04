@@ -235,20 +235,34 @@ func (nn *NN) nnBP(mistArr []float64) {
 func (nn *NN) loadStoredANN() error {
 
 	folder := "./export/"
-	var lastExportFile string
+	exportFiles := make([]string)
+
+	var paramString string = "_"
+	for i := 0; i < len(nn.config); i++ {
+		paramString += fmt.Sprintf("%d_", nn.config[i])
+	}
 
 	err := filepath.Walk(folder, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Println(err)
 			return err
 		}
-		lastExportFile = path
+
+		if path.Contains(paramString) {
+			exportFiles = append(lastExportFile, path)
+		}
+
 		return nil
 	})
 
 	if err != nil {
 		return errors.New("Bad path")
 	}
+
+	if len(exportFiles) == 0 {
+		return errors.New("No suitable files to import")
+	}
+	lastExportFile := exportFiles[len(exportFiles)-1]
 
 	if folder == lastExportFile {
 		return errors.New("No files to import")
@@ -260,16 +274,6 @@ func (nn *NN) loadStoredANN() error {
 		return errors.New("Bad filename length")
 	}
 
-	epochStr, err := strPrefRemove(params[0], "export/")
-	if err != nil {
-		return errors.New("Bad filename epoch - " + params[0])
-	}
-
-	nn.prevEpoch, err = strconv.Atoi(epochStr)
-	if err != nil {
-		return errors.New("Bad filename epoch: " + epochStr)
-	}
-
 	for idx := 0; idx < len(nn.config); idx++ {
 		nextCount, err := strconv.Atoi(params[idx+1])
 		if err != nil {
@@ -279,6 +283,16 @@ func (nn *NN) loadStoredANN() error {
 		if nn.config[idx] != nextCount {
 			return errors.New("This file not for current network parameters")
 		}
+	}
+
+	epochStr, err := strPrefRemove(params[0], "export/")
+	if err != nil {
+		return errors.New("Bad filename epoch - " + params[0])
+	}
+
+	nn.prevEpoch, err = strconv.Atoi(epochStr)
+	if err != nil {
+		return errors.New("Bad filename epoch: " + epochStr)
 	}
 
 	fmt.Println("NN loaded from file: ", lastExportFile)
