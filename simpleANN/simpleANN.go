@@ -117,7 +117,7 @@ func (nn *NN) firstGenerate() error {
 
 func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
 
-	for i := nn.prevEpoch + 1; i < nn.prevEpoch+epochs; i++ {
+	for i := nn.prevEpoch + 1; i <= nn.prevEpoch+epochs; i++ {
 		err := nn.nnGo(trainData, i, mode)
 		if err != nil {
 			return err
@@ -127,7 +127,7 @@ func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
 		for _, conf := range nn.config {
 			annStr += fmt.Sprintf("%d_", conf)
 		}
-		exportStr := fmt.Sprintf("%.4d_%s%.5d_%.5d_%.2f_%.5f", i, annStr, nn.readIMGs, nn.guesNum, nn.alfa, nn.mu)
+		exportStr := fmt.Sprintf("%.4d_%s%.5d_%.5d_%.1f_%.6f", i, annStr, nn.readIMGs, nn.guesNum, nn.alfa, nn.mu)
 
 		fmt.Println(exportStr)
 
@@ -235,7 +235,7 @@ func (nn *NN) nnBP(mistArr []float64) {
 func (nn *NN) loadStoredANN() error {
 
 	folder := "./export/"
-	exportFiles := make([]string)
+	exportFiles := make([]string, 1)
 
 	var paramString string = "_"
 	for i := 0; i < len(nn.config); i++ {
@@ -248,8 +248,8 @@ func (nn *NN) loadStoredANN() error {
 			return err
 		}
 
-		if path.Contains(paramString) {
-			exportFiles = append(lastExportFile, path)
+		if strings.Contains(path, paramString) {
+			exportFiles = append(exportFiles, path)
 		}
 
 		return nil
@@ -259,12 +259,13 @@ func (nn *NN) loadStoredANN() error {
 		return errors.New("Bad path")
 	}
 
-	if len(exportFiles) == 0 {
+	if len(exportFiles) == 1 {
 		return errors.New("No suitable files to import")
 	}
+
 	lastExportFile := exportFiles[len(exportFiles)-1]
 
-	if folder == lastExportFile {
+	if len(lastExportFile) < 10 {
 		return errors.New("No files to import")
 	}
 
