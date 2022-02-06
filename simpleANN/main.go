@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 )
 
+var wg sync.WaitGroup
 var lern bool = true
 
 func main() {

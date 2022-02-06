@@ -31,12 +31,23 @@ func (hl *hidenLayer) layerForvard(nextLayer *[]float64, alfa float64) error {
 	}
 
 	for idx1, c1 := range hl.layerWeights {
-		var mySum float64 = 0
-		for idx2, c2 := range hl.layerContent {
-			mySum += c2 * c1[idx2]
-		}
-		(*nextLayer)[idx1] = sigmaFunc(mySum, hl.alfa)
+		wg.Add(1)
+		go func(i int, arr []float64) {
+
+			var mySum float64 = 0
+			for idx2, c2 := range hl.layerContent {
+				mySum += c2 * arr[idx2]
+			}
+
+			(*nextLayer)[i] = sigmaFunc(mySum, hl.alfa)
+
+			wg.Done()
+
+		}(idx1, c1)
+
 	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -46,16 +57,31 @@ func (hl *hidenLayer) layerBP(mis, layer []float64, mu float64) []float64 {
 	res := make([]float64, len(hl.layerContent))
 
 	for k := range hl.layerContent {
-		for l := range hl.layerWeights {
-			res[k] += mis[l] * hl.layerWeights[l][k]
-		}
+		wg.Add(1)
+		go func(i int) {
+			for l := range hl.layerWeights {
+				res[i] += mis[l] * hl.layerWeights[l][i]
+			}
+
+			wg.Done()
+		}(k)
+
 	}
 
+	wg.Wait()
+
 	for k := range hl.layerContent {
-		for l := range hl.layerWeights {
-			hl.layerWeights[l][k] += mu * mis[l] * hl.layerContent[k] * layer[l]
-		}
+		wg.Add(1)
+		go func(i int) {
+			for l := range hl.layerWeights {
+				hl.layerWeights[l][i] += mu * mis[l] * hl.layerContent[i] * layer[l]
+			}
+
+			wg.Done()
+		}(k)
 	}
+
+	wg.Wait()
 
 	return res
 }
