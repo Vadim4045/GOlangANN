@@ -118,6 +118,15 @@ func (nn *NN) firstGenerate() error {
 func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
 
 	for i := nn.prevEpoch + 1; i <= nn.prevEpoch+epochs; i++ {
+
+		if !myGo {
+			return nil
+		}
+
+		if nn.mu != mu {
+			nn.mu = mu
+		}
+
 		err := nn.nnGo(trainData, i, mode)
 		if err != nil {
 			return err
@@ -144,6 +153,8 @@ func (nn *NN) nnGo(trainData [][]float64, epoch int, mode bool) error {
 
 	nn.readIMGs = 0
 	nn.guesNum = 0
+
+	start := time.Now()
 
 	for _, curIMG := range trainData {
 
@@ -172,7 +183,7 @@ func (nn *NN) nnGo(trainData [][]float64, epoch int, mode bool) error {
 		}
 	}
 
-	fmt.Printf("%.2f/%.5f/%.4f\n", nn.alfa, nn.mu, float32(nn.guesNum)/float32(nn.readIMGs))
+	fmt.Printf("%.2f/%.5f/%.4f_on_%v - ", nn.alfa, nn.mu, float32(nn.guesNum)/float32(nn.readIMGs), time.Now().Sub(start))
 	return nil
 }
 
@@ -286,16 +297,6 @@ func (nn *NN) loadStoredANN() error {
 		}
 	}
 
-	epochStr, err := strPrefRemove(params[0], "export/")
-	if err != nil {
-		return errors.New("Bad filename epoch - " + params[0])
-	}
-
-	nn.prevEpoch, err = strconv.Atoi(epochStr)
-	if err != nil {
-		return errors.New("Bad filename epoch: " + epochStr)
-	}
-
 	fmt.Println("NN loaded from file: ", lastExportFile)
 
 	file, err := os.Open("./" + lastExportFile)
@@ -304,6 +305,11 @@ func (nn *NN) loadStoredANN() error {
 	}
 
 	defer file.Close()
+
+	nn.prevEpoch, err = strconv.Atoi(strings.Split(params[0], "/")[1])
+	if err != nil {
+		nn.prevEpoch = 0
+	}
 
 	scanner := bufio.NewScanner(file)
 
@@ -315,6 +321,7 @@ func (nn *NN) loadStoredANN() error {
 		if flag {
 			config := strings.Split(strings.TrimSpace(scanner.Text()), " ")
 			if config[0] == "#" {
+
 				flag = false
 				layer, err = strconv.Atoi(config[1])
 				if err != nil {
@@ -344,6 +351,7 @@ func (nn *NN) loadStoredANN() error {
 				if count == length {
 					flag = true
 				}
+
 			}
 		}
 
