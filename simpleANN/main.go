@@ -12,7 +12,7 @@ var wg sync.WaitGroup
 var lern bool = true
 var myGo bool = true
 var alfa float64 = 0.5
-var mu float64 = 0.02
+var mu float64 = 0.04
 
 func main() {
 	fmt.Printf("pid: %d\n", os.Getpid())
