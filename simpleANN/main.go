@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := []int{dim * dim, 200, 100, 50, 10}
+	config := []int{dim * dim, 300, 200, 10}
 
 	nn, err := NewANN(alfa, mu, config)
 	if err != nil {
@@ -41,7 +41,6 @@ func main() {
 
 	signal.Notify(signalChanel,
 		syscall.SIGINT,
-		syscall.SIGQUIT,
 		syscall.SIGUSR1,
 		syscall.SIGUSR2)
 
@@ -50,17 +49,17 @@ func main() {
 			s := <-signalChanel
 			switch s {
 
-			case syscall.SIGINT, syscall.SIGQUIT:
+			case syscall.SIGINT:
 				fmt.Println(" Prepare to stop.")
 				myGo = false
 
 			case syscall.SIGUSR1:
-				fmt.Println(" MU multiplayed.")
 				mu *= 2
+				fmt.Printf("\n MU multiplayed.( new MU is %f )\n", mu)
 
 			case syscall.SIGUSR2:
-				fmt.Println(" MU divided.")
 				mu /= 2
+				fmt.Printf("\n MU divided.( new MU is %f )\n", mu)
 			}
 		}
 	}()
