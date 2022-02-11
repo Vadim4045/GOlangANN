@@ -12,7 +12,7 @@ var wg sync.WaitGroup
 var lern bool = true
 var myGo bool = true
 var alfa float64 = 0.5
-var mu float64 = 0.04
+var mu float64 = 0.0002
 
 func main() {
 	fmt.Printf("pid: %d\n", os.Getpid())
@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := []int{dim * dim, 300, 200, 10}
+	config := []int{dim * dim, 200, 100, 50, 10}
 
 	nn, err := NewANN(alfa, mu, config)
 	if err != nil {
@@ -41,25 +41,20 @@ func main() {
 
 	signal.Notify(signalChanel,
 		syscall.SIGINT,
-		syscall.SIGUSR1,
-		syscall.SIGUSR2)
+		syscall.SIGQUIT)
 
 	go func() {
 		for {
 			s := <-signalChanel
 			switch s {
 
+			case syscall.SIGQUIT:
+				mu *= 2.0
+				fmt.Printf("\n MU increased.( new MU is %f )\n", mu)
+
 			case syscall.SIGINT:
-				fmt.Println(" Prepare to stop.")
-				myGo = false
-
-			case syscall.SIGUSR1:
-				mu *= 2
-				fmt.Printf("\n MU multiplayed.( new MU is %f )\n", mu)
-
-			case syscall.SIGUSR2:
-				mu /= 2
-				fmt.Printf("\n MU divided.( new MU is %f )\n", mu)
+				mu *= 0.5
+				fmt.Printf("\n MU decreased.( new MU is %f )\n", mu)
 			}
 		}
 	}()

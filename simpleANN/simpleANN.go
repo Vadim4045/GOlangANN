@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -66,30 +68,21 @@ func (n NN) nnExport(name string) error {
 		}
 	}
 
-	filename := "./export/" + name + "_" + strconv.Itoa(count) + "/nnExport.txt"
+	filename := "./export/" + name + "_" + strconv.Itoa(count) + "/nn.bin"
 
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
-
+	file2, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
+	defer file2.Close()
 
-	datawriter := bufio.NewWriter(file)
-
-	for i, layer := range n.innerLayers {
-		for j, arr := range layer.layerWeights {
-
-			_, _ = datawriter.WriteString(fmt.Sprintf("# %d %d %d\n", i, j, len(arr)))
-
+	for _, layer := range n.innerLayers {
+		for _, arr := range layer.layerWeights {
 			for _, elem := range arr {
-				_, _ = datawriter.WriteString(strconv.FormatFloat(elem, 'f', -1, 64) + " ")
+				binary.Write(file2, binary.LittleEndian, elem)
 			}
-			_, _ = datawriter.WriteString("\n")
 		}
 	}
-
-	datawriter.Flush()
-	file.Close()
 
 	return nil
 }
@@ -234,8 +227,15 @@ func (nn *NN) nnBP(mistArr []float64) {
 		tmpLayer := make([]float64, len(curLayer))
 
 		for j, e := range curLayer {
-			tmpLayer[j] = sigmoidPrime(e, nn.innerLayers[i].alfa)
+			wg.Add(1)
+
+			go func(k int, l float64) {
+				tmpLayer[k] = sigmoidPrime(l, nn.innerLayers[i].alfa)
+				wg.Done()
+			}(j, e)
 		}
+
+		wg.Wait()
 
 		mistArr = nn.innerLayers[i].layerBP(mistArr, tmpLayer, nn.mu)
 		curLayer = nn.innerLayers[i].layerContent
@@ -259,7 +259,8 @@ func (nn *NN) loadStoredANN() error {
 			return err
 		}
 
-		if strings.Contains(path, paramString) {
+		//if strings.Contains(path, paramString) {
+		if strings.Contains(path, paramString) && strings.Contains(path, ".bin") {
 			exportFiles = append(exportFiles, path)
 		}
 
@@ -299,19 +300,40 @@ func (nn *NN) loadStoredANN() error {
 
 	fmt.Println("NN loaded from file: ", lastExportFile)
 
-	file, err := os.Open("./" + lastExportFile)
+	f, err := os.Open("./" + lastExportFile)
 	if err != nil {
 		return err
 	}
-
-	defer file.Close()
+	defer f.Close()
 
 	nn.prevEpoch, err = strconv.Atoi(strings.Split(params[0], "/")[1])
 	if err != nil {
 		nn.prevEpoch = 0
 	}
 
-	scanner := bufio.NewScanner(file)
+	r := bufio.NewReader(f)
+	buf := make([]byte, 0, 8)
+
+	for i, _ := range nn.innerLayers {
+		for j, _ := range nn.innerLayers[i].layerWeights {
+			for k, _ := range nn.innerLayers[i].layerWeights[j] {
+
+				n, err := r.Read(buf[:cap(buf)])
+				if err != nil && err != io.EOF {
+					return err
+				}
+
+				buff := bytes.NewReader(buf[:n])
+
+				err = binary.Read(buff, binary.LittleEndian, &nn.innerLayers[i].layerWeights[j][k])
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	/* scanner := bufio.NewScanner(file)
 
 	flag := true
 	var layer, slice, length, count int
@@ -359,7 +381,7 @@ func (nn *NN) loadStoredANN() error {
 
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
-	}
+	} */
 
 	return nil
 }

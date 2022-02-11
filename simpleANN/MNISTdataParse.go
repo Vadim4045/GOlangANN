@@ -88,7 +88,7 @@ func getDataSetSlices(data, label []byte) ([][]float64, int, error) {
 
 		b := a + config[3]*config[2]
 		for idx, elem := range data[a:b] {
-			curData[idx] = float64(elem)/float64(255) + 0.001
+			curData[idx] = float64(elem)/float64(255) + 0.0001
 		}
 		a += config[3] * config[2]
 
