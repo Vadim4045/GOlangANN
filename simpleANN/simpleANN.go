@@ -70,16 +70,16 @@ func (n NN) nnExport(name string) error {
 
 	filename := "./export/" + name + "_" + strconv.Itoa(count) + "/nn.bin"
 
-	file2, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}
-	defer file2.Close()
+	defer file.Close()
 
 	for _, layer := range n.innerLayers {
 		for _, arr := range layer.layerWeights {
 			for _, elem := range arr {
-				binary.Write(file2, binary.LittleEndian, elem)
+				binary.Write(file, binary.LittleEndian, elem)
 			}
 		}
 	}
@@ -116,9 +116,7 @@ func (nn *NN) TrainNN(trainData [][]float64, epochs int, mode bool) error {
 			return nil
 		}
 
-		if nn.mu != mu {
-			nn.mu = mu
-		}
+		nn.mu = mu
 
 		err := nn.nnGo(trainData, i, mode)
 		if err != nil {
@@ -245,6 +243,8 @@ func (nn *NN) nnBP(mistArr []float64) {
 
 func (nn *NN) loadStoredANN() error {
 
+	binExport := true
+
 	folder := "./export/"
 	exportFiles := make([]string, 1)
 
@@ -259,9 +259,14 @@ func (nn *NN) loadStoredANN() error {
 			return err
 		}
 
-		//if strings.Contains(path, paramString) {
-		if strings.Contains(path, paramString) && strings.Contains(path, ".bin") {
-			exportFiles = append(exportFiles, path)
+		if binExport {
+			if strings.Contains(path, paramString) && strings.Contains(path, ".bin") {
+				exportFiles = append(exportFiles, path)
+			}
+		} else {
+			if strings.Contains(path, paramString) && strings.Contains(path, ".txt") {
+				exportFiles = append(exportFiles, path)
+			}
 		}
 
 		return nil
@@ -276,10 +281,6 @@ func (nn *NN) loadStoredANN() error {
 	}
 
 	lastExportFile := exportFiles[len(exportFiles)-1]
-
-	if len(lastExportFile) < 10 {
-		return errors.New("No files to import")
-	}
 
 	params := strings.Split(lastExportFile, "_")
 
@@ -311,77 +312,79 @@ func (nn *NN) loadStoredANN() error {
 		nn.prevEpoch = 0
 	}
 
-	r := bufio.NewReader(f)
-	buf := make([]byte, 0, 8)
+	if binExport {
+		r := bufio.NewReader(f)
+		buf := make([]byte, 0, 8)
 
-	for i, _ := range nn.innerLayers {
-		for j, _ := range nn.innerLayers[i].layerWeights {
-			for k, _ := range nn.innerLayers[i].layerWeights[j] {
+		for i, _ := range nn.innerLayers {
+			for j, _ := range nn.innerLayers[i].layerWeights {
+				for k, _ := range nn.innerLayers[i].layerWeights[j] {
 
-				n, err := r.Read(buf[:cap(buf)])
-				if err != nil && err != io.EOF {
-					return err
-				}
+					n, err := r.Read(buf[:cap(buf)])
+					if err != nil && err != io.EOF {
+						return err
+					}
 
-				buff := bytes.NewReader(buf[:n])
+					buff := bytes.NewReader(buf[:n])
 
-				err = binary.Read(buff, binary.LittleEndian, &nn.innerLayers[i].layerWeights[j][k])
-				if err != nil {
-					return err
+					err = binary.Read(buff, binary.LittleEndian, &nn.innerLayers[i].layerWeights[j][k])
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
-	}
+	} else {
+		scanner := bufio.NewScanner(f)
 
-	/* scanner := bufio.NewScanner(file)
+		flag := true
+		var layer, slice, length, count int
 
-	flag := true
-	var layer, slice, length, count int
+		for scanner.Scan() {
 
-	for scanner.Scan() {
+			if flag {
+				config := strings.Split(strings.TrimSpace(scanner.Text()), " ")
+				if config[0] == "#" {
 
-		if flag {
-			config := strings.Split(strings.TrimSpace(scanner.Text()), " ")
-			if config[0] == "#" {
-
-				flag = false
-				layer, err = strconv.Atoi(config[1])
-				if err != nil {
-					return err
+					flag = false
+					layer, err = strconv.Atoi(config[1])
+					if err != nil {
+						return err
+					}
+					slice, err = strconv.Atoi(config[2])
+					if err != nil {
+						return err
+					}
+					length, err = strconv.Atoi(config[3])
+					if err != nil {
+						return err
+					}
+					count = 0
+				} else {
+					return errors.New("Bad export file")
 				}
-				slice, err = strconv.Atoi(config[2])
-				if err != nil {
-					return err
-				}
-				length, err = strconv.Atoi(config[3])
-				if err != nil {
-					return err
-				}
-				count = 0
 			} else {
-				return errors.New("Bad export file")
-			}
-		} else {
-			line := strings.Split(strings.TrimSpace(scanner.Text()), " ")
-			for i := 0; i < length; i++ {
-				tmp, err := strconv.ParseFloat(line[i], 64)
-				if err != nil {
-					return err
-				}
-				nn.innerLayers[layer].layerWeights[slice][i] = tmp
-				count++
-				if count == length {
-					flag = true
-				}
+				line := strings.Split(strings.TrimSpace(scanner.Text()), " ")
+				for i := 0; i < length; i++ {
+					tmp, err := strconv.ParseFloat(line[i], 64)
+					if err != nil {
+						return err
+					}
+					nn.innerLayers[layer].layerWeights[slice][i] = tmp
+					count++
+					if count == length {
+						flag = true
+					}
 
+				}
 			}
+
 		}
 
+		if err := scanner.Err(); err != nil {
+			return err
+		}
 	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	} */
 
 	return nil
 }
